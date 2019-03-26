@@ -13,6 +13,7 @@ import numpy as np
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showinfo
 from tkinter.colorchooser import askcolor
+from tkinter.filedialog import askdirectory
 
 try:
     import Tkinter as tk
@@ -53,8 +54,8 @@ def destroy_Piction():
 
 class Piction:
 
-    features = ["Monochrome","Negative","Blur","Custom Color Filter","Sepia","Edge Detection","Sharpen","Sketch","Draw", "Crop", "Blend","Contrast & Brightness","RGB to BGR","Pick Color","Rotate","Resize","Add Text"]
-    #               0           1           2           3               4           5               6       7       8       9       10          11                 12              13          14      15           16
+    features = ["Monochrome","Negative","Blur","Custom Color Filter","Sepia","Edge Detection","Sharpen","Sketch","Draw Freehand", "Crop", "Blend","Contrast & Brightness","RGB to BGR","Pick Color","Rotate","Resize","Add Text","Draw Circle","Draw Rectangle","Picture-in-Picture","Create Background","Draw Line","Square Fit"]
+    #               0           1           2           3               4           5               6       7       8               9       10          11                 12              13          14      15           16          17              18              19                  20                21            22
 
 
     welcome_message = "Start Editing right away! Select one of the options from the list and look here for more options!"
@@ -75,7 +76,7 @@ class Piction:
     width = 0
     channels = 0
     extension=''
-    color = 0
+    color = ((255,255,255), "#ffffff")
     mouse_x=0
     mouse_y=0
 
@@ -364,11 +365,10 @@ class Piction:
     def open_file(self):
         image_path = askopenfilename()
 
-
         try:
             self.image = cv.imread(image_path)
-
             self.height, self.width, self.channels = self.image.shape
+            #print(self.image)
 
             try:
                 self.image_area.destroy()
@@ -430,6 +430,8 @@ class Piction:
                         break
 
             image = image_croped
+        else:
+            self.crop_percentage=100
         return image
 
 
@@ -463,7 +465,6 @@ class Piction:
 
     def negative_setup(self):
         msg = "Get a Color Negative image of the current image!"
-
         self.set_description(msg)
 
     def negative_apply(self):
@@ -558,8 +559,6 @@ class Piction:
 
     def sketch_setup(self):
         msg = "Sketch is obtained as a combination of Canny Edge Detection and Negative Filter, get a sketch of the current image by hitting the apply button!"
-
-
         self.set_description(msg)
 
     def sketch_apply(self):
@@ -670,6 +669,10 @@ class Piction:
 
     def crop_apply(self):
         self.set_image(self.image)
+        h,w,n = self.image.shape
+        self.height = h
+        self.width = w
+        print("Height =", self.height, "Width =", self.width)
 
     def blend_setup(self):
         msg = "Blend two images Img1 and Img2 according to custom weight and get a mixed image of both the images as output!\n\nWorks best when both images are of same Aspect Ratios!"
@@ -680,13 +683,14 @@ class Piction:
 
     def blend_apply(self):
        try:
-            weight1 = self.scale_1.get()
-            weight2 = self.scale_2.get()
-            weight1 = weight1/100
-            weight2 = weight2/100
-            img =   cv.addWeighted(self.image_copy, weight1, self.blend_image, weight2, 0)
-            self.set_image(img)
-            self.image= img
+           self.opened_image = cv.resize(self.opened_image, (self.width, self.height), interpolation=cv.INTER_AREA)
+           weight1 = self.scale_1.get()
+           weight2 = self.scale_2.get()
+           weight1 = weight1/100
+           weight2 = weight2/100
+           img =   cv.addWeighted(self.image_copy, weight1, self.opened_image, weight2, 0)
+           self.set_image(img)
+           self.image= img
        except:
            showinfo("Error", "Please Select Image 2")
 
@@ -694,7 +698,7 @@ class Piction:
        # weight2 = self.scale_2.get()
        # weight1 = weight1/100
        # weight2 = weight2/100
-       # img =   cv.addWeighted(self.image_copy, weight1, self.blend_image, weight2, 0)
+       # img =   cv.addWeighted(self.image_copy, weight1, self.opened_image, weight2, 0)
        # self.set_image(img)
        # self.image= img
 
@@ -834,6 +838,11 @@ class Piction:
         self.setup_extra_button("Color")
         self.image_area.bind('<Button-1>', self.text_get_point)
         self.option = tk.StringVar()
+
+        try:
+            self.options.clear()
+        except:
+            print("Not Yet Bitch")
         self.options = ["Font1","Font2","Font 3", "Font 4","Font 5","Font 6","Font 7"]
         self.option.set(self.options[0])
         self.optionMenu = tk.OptionMenu(self.right_pane,self.option,self.options[0],*self.options)
@@ -874,12 +883,235 @@ class Piction:
         self.image_copy = img
         self.set_image(img)
 
-
-
     def add_text_apply(self):
         #This just places the Text at (0,0) and that text needs to be dragged to custom position!
         text = self.edit_entry1.get()
         self.image = self.image_copy
+
+
+    def draw_circle_setup(self):
+        msg = "Highlight people or things in the image in the traditional way! Draw a circle around it!"
+        self.set_description(msg)
+        self.set_up_scales([[1,20,"Thick"]], amount=1)
+        self.image_copy = self.image.copy()
+        self.image_area.bind("<Button-1>",self.draw_circle_clicked)
+        self.image_area.bind("<Motion>",self.draw_circle_moving)
+        self.image_area.bind("<ButtonRelease-1>",self.draw_circle_released)
+        self.setup_extra_button("Color")
+
+
+    def draw_circle_clicked(self, event):
+        self.mouseClicked=True
+        self.crop_x1 = event.x
+        self.crop_y1 = event.y
+        self.circle = 0
+
+    def draw_circle_moving(self, event):
+        x = event.x
+        y = event.y
+        thickness = self.scale_1.get()
+        if self.mouseClicked:
+            self.image_area.delete(self.circle)
+            self.circle = self.image_area.create_oval(self.crop_x1,self.crop_y1,x,y, outline = self.color[1], width = thickness)
+
+
+    def draw_circle_released(self, event):
+        self.image_copy = self.image.copy()
+        x = event.x*100/self.crop_percentage
+        y = event.y*100/self.crop_percentage
+        self.crop_x1 = self.crop_x1*100/self.crop_percentage
+        self.crop_y1 = self.crop_y1*100/self.crop_percentage
+        self.mouseClicked = False
+        thickness = self.scale_1.get()
+
+        axisX = int((x - self.crop_x1)/2)
+        axisY = int((y - self.crop_y1)/2)
+        centre = (int((x+self.crop_x1)/2),int((y+self.crop_y1)/2))
+
+        cv.ellipse(self.image_copy,centre,(axisX,axisY),0,0,360,tuple(reversed(self.color[0])),thickness=thickness)
+        self.image = self.image_copy
+        self.set_image(self.image_copy)
+        self.apply_button_clicked()
+
+    def draw_circle_apply(self):
+        self.image = self.image_copy
+
+    def draw_rectangle_setup(self):
+        msg = "Draw Rectangles on your image using your Mouse!"
+        self.set_description(msg)
+        self.set_up_scales([[1, 20, "Thick"]], amount=1)
+        self.image_copy = self.image.copy()
+        self.image_area.bind("<Button-1>", self.draw_rectangle_clicked)
+        self.image_area.bind("<Motion>", self.draw_rectangle_moving)
+        self.image_area.bind("<ButtonRelease-1>", self.draw_rectangle_released)
+        self.setup_extra_button("Color")
+
+    def draw_rectangle_clicked(self,event):
+        self.mouseClicked = True
+        self.crop_x1 = event.x
+        self.crop_y1 = event.y
+
+    def draw_rectangle_moving(self, event):
+        x = event.x
+        y = event.y
+        thickness = self.scale_1.get()
+        if self.mouseClicked:
+            self.image_area.delete(self.rectangle)
+            self.rectangle = self.image_area.create_rectangle(self.crop_x1, self.crop_y1, x, y, outline = self.color[1], width = thickness)
+
+    def draw_rectangle_released(self, event):
+        self.image_copy = self.image.copy()
+        x = int(event.x * 100 / self.crop_percentage)
+        y = int(event.y * 100 / self.crop_percentage)
+        self.crop_x1 = int(self.crop_x1 * 100 / self.crop_percentage)
+        self.crop_y1 = int(self.crop_y1 * 100 / self.crop_percentage)
+        self.mouseClicked = False
+        thickness = self.scale_1.get()
+
+        point1 = (self.crop_x1, self.crop_y1)
+        point2 = (x,y)
+
+        cv.rectangle(self.image_copy, point1, point2, tuple(reversed(self.color[0])), thickness= thickness)
+        self.image = self.image_copy
+        self.set_image(self.image_copy)
+        self.apply_button_clicked()
+
+    def draw_rectangle_apply(self):
+        self.image = self.image_copy
+
+
+    def PiP_setup(self):
+        msg = "Open another picture by clicking open file button below and select the region where you want that image!!"
+        self.set_description(msg)
+        self.setup_extra_button("Open Image")
+        self.image_area.bind("<Button-1>", self.PiP_clicked)
+        self.image_area.bind("<Motion>", self.PiP_moving)
+        self.image_area.bind("<ButtonRelease-1>", self.PiP_released)
+        self.image_copy = self.image.copy()
+        #cv.imshow("img", self.image_copy)
+
+    def PiP_clicked(self, event):
+        self.mouseClicked = True
+        self.crop_x1 = event.x
+        self.crop_y1 = event.y
+
+    def PiP_moving(self, event):
+        x = event.x
+        y = event.y
+        if self.mouseClicked:
+            self.image_area.delete(self.rectangle)
+            self.rectangle = self.image_area.create_rectangle(self.crop_x1, self.crop_y1, x, y)
+
+    def PiP_released(self, event):
+        self.image_copy = self.image.copy()
+        self.mouseClicked = False
+
+        self.crop_x1 = int(self.crop_x1*100/self.crop_percentage)
+        self.crop_y1 = int(self.crop_y1*100/self.crop_percentage)
+
+        x = int(event.x*100/self.crop_percentage)
+        y = int(event.y*100/self.crop_percentage)
+
+        sizeX = x - self.crop_x1
+        sizeY = y - self.crop_y1
+
+        print("SizeX =",sizeX, "SizeY =",sizeY)
+
+        img = cv.resize(self.opened_image, (sizeX,sizeY), interpolation=cv.INTER_AREA)
+
+        print("Shape ",img.shape)
+
+        self.image_copy[self.crop_y1:y , self.crop_x1:x] = img
+        self.set_image(self.image_copy)
+        self.apply_button_clicked()
+
+    def PiP_apply(self):
+        self.image = self.image_copy
+
+    def create_background_setup(self):
+        msg = "Create a background of resolution 2000 x 2000 and work with other tools in the App to crete a Masterpeice!"
+        self.set_description(msg)
+        self.set_up_scales([[0,255,"Red"],[0,255,"Green"],[0,255,"Blue"]], amount=3)
+
+    def create_background_apply(self):
+        red = self.scale_1.get()
+        green = self.scale_2.get()
+        blue = self.scale_3.get()
+
+        bgr = (blue, green, red)
+
+        background = np.full((2000, 2000, 3),bgr , dtype='uint8')
+        self.height = 2000
+        self.width = 2000
+        self.set_image(background)
+        self.image = background
+
+    def draw_line_setup(self):
+        msg = "Conect one point to another by a straight line!\nSelect the thickness and color below and get started"
+        self.set_description(msg)
+        self.set_up_scales([[1,10,"Thick"]],amount=1)
+        self.setup_extra_button("Color")
+        self.image_area.bind("<Button-1>",self.draw_line_clicked)
+        self.image_area.bind("<Motion>",self.draw_line_moving)
+        self.image_area.bind("<ButtonRelease-1>",self.draw_line_released)
+
+    def draw_line_clicked(self, event):
+        self.mouseClicked = True
+        self.crop_x1 = event.x
+        self.crop_y1 = event.y
+        self.line = 0
+
+    def draw_line_moving(self, event):
+        if self.mouseClicked:
+            self.image_area.delete(self.line)
+            thickness = self.scale_1.get()
+            self.line = self.image_area.create_line(self.crop_x1, self.crop_y1, event.x, event.y, width = thickness, fill = self.color[1])
+
+    def draw_line_released(self, event):
+        self.mouseClicked =False
+        self.crop_x1 = int(self.crop_x1 * 100 / self.crop_percentage)
+        self.crop_y1 = int(self.crop_y1 * 100 / self.crop_percentage)
+        self.image_copy = self.image.copy()
+        x = int(event.x * 100 / self.crop_percentage)
+        y = int(event.y * 100 / self.crop_percentage)
+
+        thickness = self.scale_1.get()
+        self.image_copy = cv.line(self.image_copy, (self.crop_x1, self.crop_y1),(x,y),color=tuple(reversed(self.color[0])), thickness= thickness)
+        self.apply_button_clicked()
+        self.set_image(self.image_copy)
+
+    def draw_line_apply(self):
+        self.image = self.image_copy
+
+    def square_fit_setup(self):
+        msg = "Need to change WhatsApp DP or Instagram DP but your picture ain't square?\n\nWe got you covered! Just select the Background Color and hit Apply!"
+        self.set_description(msg)
+        self.setup_extra_button("Color")
+        self.image_copy = self.image.copy()
+
+
+    def square_fit_apply(self):
+        if self.height>self.width :
+
+            bgr = tuple(reversed(self.color[0]))
+            background = np.full((self.height, self.height, 3), bgr, dtype='uint8')
+
+            background[0:self.height, int((self.height-self.width)/2):int((self.height+self.width)/2)] = self.image_copy
+
+            self.image = background
+            self.set_image(self.image)
+
+        elif self.width> self.height:
+
+            bgr = tuple(reversed(self.color[0]))
+            background = np.full((self.width, self.width, 3), bgr, dtype="uint8")
+
+            background[int((self.width-self.height)/2) : int((self.width+self.height)/2), 0:self.width] = self.image_copy
+            self.image = background
+            self.set_image(self.image)
+
+        else:
+            showinfo("Notice", "Image already Square!")
 
 
     def undo(self):
@@ -967,6 +1199,24 @@ class Piction:
         elif index == 16:
             self.add_text_setup()
             self.current_mode = 16
+        elif index == 17:
+            self.draw_circle_setup()
+            self.current_mode = 17
+        elif index == 18:
+            self.draw_rectangle_setup()
+            self.current_mode=18
+        elif index == 19:
+            self.PiP_setup()
+            self.current_mode=19
+        elif index == 20:
+            self.create_background_setup()
+            self.current_mode=20
+        elif index == 21:
+            self.draw_line_setup()
+            self.current_mode =21
+        elif index == 22:
+            self.square_fit_setup()
+            self.current_mode = 22
 
     def apply_button_clicked(self):
         del self.undo_stack[self.undo_stack_pointer+1:]
@@ -1004,19 +1254,36 @@ class Piction:
             self.resize_apply()
         elif self.current_mode == 16:
             self.add_text_apply()
+        elif self.current_mode == 17:
+            self.draw_circle_apply()
+        elif self.current_mode == 18:
+            self.draw_rectangle_apply()
+        elif self.current_mode == 19:
+            self.PiP_apply()
+        elif self.current_mode == 20:
+            self.create_background_apply()
+        elif self.current_mode == 21:
+            self.draw_line_apply()
+        elif self.current_mode == 22:
+            self.square_fit_apply()
 
         self.push()
         #self.print_image_properties(self.image)
 
 
     def save(self):
-        print(self.extension)
-        save_file_name = self.image_path_route + self.image_name + "_Piction" + self.extension
-        print(save_file_name)
-        #Troughout the editing process, self.image remains in BGR format as cv.imread reads it in BGR, it is converted to RGB each time set_image funtion is called
-        #But while saving the image, cv.imwrite converts BGR to RGB so no need to convert the image again!
-        cv.imwrite(save_file_name, self.image)
-        showinfo("Notification","Image Saved!")
+        try:
+            print(self.extension)
+            save_file_name = self.image_path_route + self.image_name + "_Piction" + self.extension
+            print(save_file_name)
+            #Troughout the editing process, self.image remains in BGR format as cv.imread reads it in BGR, it is converted to RGB each time set_image funtion is called
+            #But while saving the image, cv.imwrite converts BGR to RGB so no need to convert the image again!
+            cv.imwrite(save_file_name, self.image)
+            showinfo("Notification","Image Saved!")
+        except:
+            directory = askdirectory()
+            path = directory+"/Piction.jpg"
+            cv.imwrite(path, self.image)
 
 
     def mouse_clicked(self, event):
@@ -1073,12 +1340,16 @@ class Piction:
         image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
         image = self.crop_image(image)
         height, width, channels = image.shape
-        self.image_area.configure(height = height, width = width)
-
-        self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(image))
-        self.image_area.create_image(0, 0, image=self.photo, anchor=tk.NW)
-        #self.image = image
-
+        try:
+            self.image_area.configure(height = height, width = width)
+            self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(image))
+            self.image_area.create_image(0, 0, image=self.photo, anchor=tk.NW)
+        except:
+            self.image_area = tk.Canvas(self.top, highlightthickness=0)
+            self.image_area.configure(height = height, width = width)
+            self.photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(image))
+            self.image_area.create_image(0, 0, image=self.photo, anchor=tk.NW)
+            self.image_area.place(relx = 0.5, rely = 0.5, anchor=tk.CENTER)
 
     def set_description(self, msg):
         self.description.delete(1.0, tk.END)
@@ -1271,12 +1542,12 @@ class Piction:
         self.extra_button.place(relx = 0.235, rely = 0.865, height =25, width= 136)
 
     def extra_button_clicked(self):
-        if self.current_mode == 10:
+        if self.current_mode == 10 or self.current_mode == 19:
             path = askopenfilename()
-            self.blend_image = cv.imread(path)
+            self.opened_image = cv.imread(path)
 
-            self.blend_image = cv.resize(self.blend_image, (self.width, self.height), interpolation=cv.INTER_AREA)
-        elif self.current_mode == 8 or self.current_mode == 16:
+
+        elif self.current_mode == 8 or self.current_mode == 16 or self.current_mode == 17 or self.current_mode  == 18 or self.current_mode == 21 or self.current_mode == 22:
             self.color = askcolor()
             #self.color = self.color[0]
             print(self.color)
