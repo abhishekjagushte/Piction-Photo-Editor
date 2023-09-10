@@ -27,4 +27,4 @@ Link for OpenCV on Anaconda : https://anaconda.org/conda-forge/opencv
 •	OpenCV Python is the Image Processing Framework used to do all the manipulations on the Images in Piction.
 •	OpenCV stores the Images in the form of Numpy Array so the Numerical python Module need to be installed in the System
 •	OpenCV provided very simple interface to play around with images, most of the manipulations In Images are no brainers like just couple of lines of Code
-•	OpenCV is extensively used in fields where Image Processing is required as in Robotics, Machine Learning, Image Analysis, etc
+•	OpenCV is extensively used in fields where Image Processing is required as in Robotics, Machine Learning, Image Analysis, etc.
